@@ -1,0 +1,109 @@
+Sub GerarRelatorioCompleto()
+
+    Dim objPPT As Object
+    Dim apresModelo As Object
+    Dim priSlide As Object
+    Dim formaSlide As Object
+    Dim itemSubst As String
+    Dim valSubst As String
+    Dim encontrouTxt As Object
+    Dim caractIni As Integer
+    Dim j As Integer
+    Dim linhaDados As Integer
+    Dim totalLinhas As Integer
+    Dim imgPath As String
+    Dim imgSlide As Object
+
+    ' Cria uma instância do PowerPoint
+    On Error Resume Next
+    Set objPPT = GetObject(, "PowerPoint.Application")
+    On Error GoTo 0
+
+    If objPPT Is Nothing Then
+        Set objPPT = CreateObject("PowerPoint.Application")
+    End If
+
+    ' Abre a apresentação modelo
+    Set apresModelo = objPPT.Presentations.Open(ThisWorkbook.Path & "\" & "Relatório Fotográfico - Alerta 5S.pptx")
+
+    ' Inicializa a linha dos dados
+    linhaDados = 2
+
+    ' Replicar o Slide 1 na quantidade de linhas do Excel - 1
+    totalLinhas = Cells(Rows.Count, 1).End(xlUp).Row
+
+    For i = 2 To totalLinhas - 1
+        apresModelo.Slides(1).Duplicate
+    Next i
+
+    ' Loop através dos slides na apresentação
+    For Each priSlide In apresModelo.Slides
+        ' Verifica se há dados na linha correspondente
+        If linhaDados <= Cells(Rows.Count, 1).End(xlUp).Row Then
+            ' Loop através dos shapes no slide
+            For Each formaSlide In priSlide.Shapes
+                ' Verifica se o shape é um campo de texto
+                If formaSlide.HasTextFrame Then
+                    If formaSlide.textFrame.HasText Then
+                        ' Loop através das células (colunas 1 a 3)
+                        For j = 1 To 3
+                            itemSubst = Cells(1, j).Value
+                            valSubst = Cells(linhaDados, j).Value
+                            ' Procura o texto a ser substituído
+                            Set encontrouTxt = formaSlide.textFrame.textRange.Find(itemSubst)
+                            If Not (encontrouTxt Is Nothing) Then
+                                ' Obtém o índice do caractere inicial e realiza a substituição
+                                caractIni = encontrouTxt.Characters.Start
+                                formaSlide.textFrame.textRange.Characters(caractIni).InsertBefore valSubst
+                                encontrouTxt.Delete
+                            End If
+                        Next j
+                    End If
+                End If
+
+                ' Verifica se o shape é uma imagem
+                If formaSlide.Type = msoPicture Then
+                    ' Remove a imagem existente no slide
+                    formaSlide.Delete
+                End If
+            Next formaSlide
+            
+            ' Obtém o nome do arquivo de imagem na coluna 4
+            imgPath = "C:\Users\gabriel.barboza\Documents\Relatório Liga 5S\Fotos\" & Cells(linhaDados, 4).Value
+            imgPath = Replace(imgPath, "/", "\") ' Substitui barras por barras invertidas, se necessário
+
+            ' Adiciona a imagem ao slide
+            priSlide.Shapes.AddPicture imgPath, MsoTriState.msoFalse, MsoTriState.msoCTrue, 0, 0
+
+            ' Incrementa a linha dos dados
+            linhaDados = linhaDados + 1
+        End If
+    Next priSlide
+
+    ' Salva o último slide antes de fechar o PowerPoint
+    apresModelo.SaveAs "C:\Users\gabriel.barboza\Documents\Relatório Liga 5S\Relatórios\Relatório Fotográfico CD.pptx"
+
+    ' Fecha o PowerPoint
+    objPPT.Quit
+
+    ' Limpa as referências de objetos
+    Set objPPT = Nothing
+    Set apresModelo = Nothing
+    Set priSlide = Nothing
+
+    ' Exibe mensagem
+    MsgBox "Relatório Criado"
+    
+    ' Apaga todas as fotos da pasta raiz
+    Dim fs As Object
+    Set fs = CreateObject("Scripting.FileSystemObject")
+
+    Dim folderPath As String
+    folderPath = "C:\Users\gabriel.barboza\Documents\Relatório Liga 5S\Fotos\"
+    
+    Dim file As Object
+    For Each file In fs.GetFolder(folderPath).Files
+    fs.DeleteFile file.Path
+    Next file
+
+End Sub
